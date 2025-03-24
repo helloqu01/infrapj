@@ -7,7 +7,7 @@ import { useEffect } from "react";
 export default function Home() {
 
   useEffect(() => {
-    fetch('https://46bemqujkp.us-east-1.awsapprunner.com/api/hello')
+    fetch('/api/hello')
       .then(res => res.json())
       .then(data => console.log(data))
   }, []);
