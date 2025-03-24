@@ -5,7 +5,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: ['http://localhost:3000'], // Next.js 개발 서버 주소
+    origin: ['http://my-next-app-bucket-e57x1l.s3-website.ap-northeast-2.amazonaws.com'], // Next.js 개발 서버 주소
     credentials: true,
   });
 

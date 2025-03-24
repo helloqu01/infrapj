@@ -42,7 +42,7 @@ jobs:
     - name: Build and deploy Nest.js to App Runner
       run: |
         cd nest-api
-        docker build -t nest-api . 
+        docker build -t nest-api .
         docker tag nest-api:latest 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
         
         # Login to AWS ECR
@@ -50,20 +50,7 @@ jobs:
         
         # Push the image to ECR
         docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
 
-    - name: Get CloudFront URL
-      run: |
-        # Use AWS CLI to get the CloudFront distribution domain name
-        CLOUDFRONT_URL=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='my-next-app-bucket'].DomainName" --output text)
-        if [ "$CLOUDFRONT_URL" == "None" ]; then
-          echo "CloudFront distribution not found!"
-        else
-          echo "CloudFront URL is: $CLOUDFRONT_URL"
-        fi
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
