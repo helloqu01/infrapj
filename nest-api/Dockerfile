@@ -1,18 +1,21 @@
-# Nest.js API를 위한 Dockerfile
-FROM node:18
+# Step 1: Use an official Node.js runtime as the base image
+FROM node:16
 
-# 작업 디렉토리 설정
-WORKDIR /app
+# Step 2: Set the working directory inside the container
+WORKDIR /usr/src/app
 
-# 패키지 복사 및 설치
-COPY package.json package-lock.json ./
-RUN npm install --production
+# Step 3: Install dependencies
+COPY package*.json ./
+RUN npm install
 
-# 소스 코드 복사
+# Step 4: Copy the application code
 COPY . .
 
-# 포트 설정 (Nest.js 기본 포트)
-EXPOSE 3001
+# Step 5: Build the Nest.js app
+RUN npm run build
 
-# 앱 실행
-CMD ["npm", "run", "start"]
+# Step 6: Expose the port that the app will listen on
+EXPOSE 8080
+
+# Step 7: Run the app when the container starts
+CMD ["npm", "run", "start:prod"]
