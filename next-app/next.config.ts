@@ -7,7 +7,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*', // Nest.js
+        destination: 'http://localhost:8080/api/:path*', // Nest.js
         // destination: "https://your-app-runner-url.com/api/:path*", // App Runner의 API URL로 연결
       },
     ];
