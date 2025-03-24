@@ -9,7 +9,7 @@ on:
       - main  # main 브랜치에 대한 PR이 생길 때마다 실행
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -31,7 +31,6 @@ jobs:
         cd next-app
         npm run build
 
-    # 1. 프론트엔드 배포 (Next.js 앱을 S3에 배포)
     - name: Deploy Next.js to S3
       run: |
         aws s3 sync next-app/out/ s3://my-next-app-bucket-e57x1l --delete
@@ -40,7 +39,6 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_REGION: ${{ secrets.AWS_REGION_FRONT }}
 
-    # 2. 백엔드 배포 (Nest.js 앱을 App Runner에 배포)
     - name: Build and deploy Nest.js to App Runner
       run: |
         cd nest-api
@@ -52,52 +50,7 @@ jobs:
         
         # Push the image to ECR
         docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
 
-    # 3. CloudFront 설정 및 배포
-    - name: Create or Update CloudFront Distribution
-      run: |
-        CLOUDFRONT_URL=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='my-next-app-bucket'].DomainName" --output text)
-        if [ "$CLOUDFRONT_URL" == "None" ]; then
-          echo "Creating new CloudFront distribution..."
-          aws cloudfront create-distribution \
-            --origin-domain-name "my-next-app-bucket-e57x1l.s3-website.ap-northeast-2.amazonaws.com" \
-            --enabled \
-            --default-root-object "index.html" \
-            --default-cache-behavior "{
-                \"TargetOriginId\": \"S3Origin\",
-                \"ViewerProtocolPolicy\": \"redirect-to-https\",
-                \"AllowedMethods\": [\"GET\", \"HEAD\"],
-                \"CachedMethods\": [\"GET\", \"HEAD\"]
-            }" \
-            --cache-behaviors "[{
-                \"PathPattern\": \"/api/*\",
-                \"TargetOriginId\": \"AppRunnerOrigin\",
-                \"ViewerProtocolPolicy\": \"redirect-to-https\",
-                \"AllowedMethods\": [\"GET\", \"POST\"]
-            }]" \
-            --origins "[{
-                \"DomainName\": \"my-next-app-bucket-e57x1l.s3.amazonaws.com\",
-                \"Id\": \"S3Origin\",
-                \"S3OriginConfig\": {
-                    \"OriginAccessIdentity\": \"\"
-                }
-            },
-            {
-                \"DomainName\": \"my-nest-api-app.awsapprunner.com\",
-                \"Id\": \"AppRunnerOrigin\",
-                \"CustomOriginConfig\": {
-                    \"HTTPPort\": 80,
-                    \"HTTPSPort\": 443,
-                    \"OriginProtocolPolicy\": \"https-only\"
-                }
-            }]"
-        else
-          echo "CloudFront distribution exists at: $CLOUDFRONT_URL"
-        fi
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
