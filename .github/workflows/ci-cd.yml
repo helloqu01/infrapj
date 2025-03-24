@@ -58,8 +58,12 @@ jobs:
     - name: Get CloudFront URL
       run: |
         # Use AWS CLI to get the CloudFront distribution domain name
-        export CLOUDFRONT_URL=$(aws cloudfront list-distributions --query "DistributionList.Items[?Aliases.Items[0]=='my-next-app-bucket-${{ secrets.AWS_REGION_FRONT }}'].DomainName" --output text)
-        echo "CloudFront URL is: $CLOUDFRONT_URL"
+        CLOUDFRONT_URL=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='my-next-app-bucket'].DomainName" --output text)
+        if [ "$CLOUDFRONT_URL" == "None" ]; then
+          echo "CloudFront distribution not found!"
+        else
+          echo "CloudFront URL is: $CLOUDFRONT_URL"
+        fi
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
