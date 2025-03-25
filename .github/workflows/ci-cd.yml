@@ -58,18 +58,18 @@ jobs:
           # 새 태스크 정의를 등록합니다. 아래 값들은 실제 환경에 맞게 수정하세요.
           TASK_DEF=$(aws ecs register-task-definition \
             --family nest-api-task \
-            --execution-role-arn arn:aws:iam::<AWS_ACCOUNT_ID>:role/<ECS_TASK_EXECUTION_ROLE> \
+            --execution-role-arn arn:aws:iam::743316907132:role/AmazonECSTaskExecutionRole \
             --network-mode awsvpc \
             --requires-compatibilities FARGATE \
             --cpu "256" --memory "512" \
-            --container-definitions "[{\"name\": \"nest-api\",\"image\": \"<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],\"essential\": true,\"environment\": [{\"name\": \"PORT\",\"value\": \"8080\"}]}]" \
+            --container-definitions "[{\"name\": \"nest-api\",\"image\": \"743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],\"essential\": true,\"environment\": [{\"name\": \"PORT\",\"value\": \"8080\"}]}]" \
             --query "taskDefinition.taskDefinitionArn" --output text)
           echo "New task definition registered: $TASK_DEF"
 
           # 클러스터와 서비스 이름은 실제 환경에 맞게 수정하세요.
           aws ecs update-service \
-            --cluster <MY_ECS_CLUSTER> \
-            --service <MY_BACKEND_SERVICE> \
+            --cluster infrapj-ecs-cluster \
+            --service infrapj-backend-service \
             --task-definition "$TASK_DEF" \
             --force-new-deployment \
             --region ${{ secrets.AWS_REGION_BACK }}
