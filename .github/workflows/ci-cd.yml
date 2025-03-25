@@ -52,28 +52,58 @@ jobs:
           
           # Push the image to ECR
           docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest 
-      
-      - name: Update ECS Fargate Service
-        run: |
-          # 새 태스크 정의를 등록합니다. 아래 값들은 실제 환경에 맞게 수정하세요.
-          TASK_DEF=$(aws ecs register-task-definition \
-            --family nest-api-task \
-            --execution-role-arn arn:aws:iam::743316907132:role/AmazonECSTaskExecutionRole \
-            --network-mode awsvpc \
-            --requires-compatibilities FARGATE \
-            --cpu "256" --memory "512" \
-            --container-definitions "[{\"name\": \"nest-api\",\"image\": \"743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],\"essential\": true,\"environment\": [{\"name\": \"PORT\",\"value\": \"8080\"}]}]" \
-            --query "taskDefinition.taskDefinitionArn" --output text)
-          echo "New task definition registered: $TASK_DEF"
-
-          # 클러스터와 서비스 이름은 실제 환경에 맞게 수정하세요.
-          aws ecs update-service \
-            --cluster infrapj-ecs-cluster \
-            --service infrapj-backend-service \
-            --task-definition "$TASK_DEF" \
-            --force-new-deployment \
-            --region ${{ secrets.AWS_REGION_BACK }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
+      
+      - name: Create or Update ECS Fargate Service
+        run: |
+            CLUSTER_NAME="infrapj-ecs-cluster"
+            SERVICE_NAME="infrapj-backend-service"
+            DESIRED_COUNT=1
+            SUBNETS='["<SUBNET_ID_1>","<SUBNET_ID_2>"]'
+            SECURITY_GROUPS='["<SECURITY_GROUP_ID>"]'
+            ALB_TG_ARN="<TARGET_GROUP_ARN>"  # ALB 대상 그룹 ARN (ALB 연동 시 필요)
+            
+            # 1. 새 태스크 정의 등록
+            TASK_DEF=$(aws ecs register-task-definition \
+              --family nest-api-task \
+              --execution-role-arn arn:aws:iam::743316907132:role/AmazonECSTaskExecutionRole \
+              --network-mode awsvpc \
+              --requires-compatibilities FARGATE \
+              --cpu "256" --memory "512" \
+              --container-definitions "[{\"name\": \"nest-api\",\"image\": \"743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],\"essential\": true,\"environment\": [{\"name\": \"PORT\",\"value\": \"8080\"}]}]" \
+              --query "taskDefinition.taskDefinitionArn" --output text \
+              --region $AWS_REGION)
+            echo "New task definition registered: $TASK_DEF"
+            
+            # 2. 서비스가 이미 존재하는지 확인
+            SERVICE_STATUS=$(aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --region $AWS_REGION --query "services[0].status" --output text || echo "NOT_FOUND")
+            echo "Service status: $SERVICE_STATUS"
+            
+            if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
+              echo "Service exists. Updating service..."
+              aws ecs update-service \
+                --cluster "$CLUSTER_NAME" \
+                --service "$SERVICE_NAME" \
+                --task-definition "$TASK_DEF" \
+                --force-new-deployment \
+                --region $AWS_REGION
+            else
+              echo "Service does not exist. Creating new service..."
+              aws ecs create-service \
+                --cluster "$CLUSTER_NAME" \
+                --service-name "$SERVICE_NAME" \
+                --task-definition "$TASK_DEF" \
+                --desired-count $DESIRED_COUNT \
+                --launch-type FARGATE \
+                --network-configuration "awsvpcConfiguration={subnets=$SUBNETS,securityGroups=$SECURITY_GROUPS,assignPublicIp=\"DISABLED\"}" \
+                --load-balancers "targetGroupArn=$ALB_TG_ARN,containerName=nest-api,containerPort=8080" \
+                --region $AWS_REGION
+            fi
+        env:
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
+        
