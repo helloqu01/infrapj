@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2  # 레포지토리의 코드를 체크아웃
 
       - name: Set up Node.js
         uses: actions/setup-node@v2
@@ -45,11 +45,13 @@ jobs:
         run: |
           cd nest-api
           docker build -t nest-api .
-          docker tag nest-api:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
+          docker tag nest-api:latest 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
           
-          # Login to AWS ECR and push image
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION_BACK }} | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
-          docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
+          # Login to AWS ECR
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION_BACK }} | docker login --username AWS --password-stdin 743316907132.dkr.ecr.us-east-1.amazonaws.com
+          
+          # Push the image to ECR
+          docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -57,21 +59,21 @@ jobs:
 
       - name: Update ECS Fargate Service
         run: |
-          # 새 태스크 정의를 등록합니다. 아래 값들은 실제 환경에 맞게 수정하세요.
+          # (옵션 1) 새 태스크 정의 등록 후 서비스 업데이트
           TASK_DEF=$(aws ecs register-task-definition \
             --family nest-api-task \
-            --execution-role-arn arn:aws:iam::<AWS_ACCOUNT_ID>:role/<ECS_TASK_EXECUTION_ROLE> \
+            --execution-role-arn arn:aws:iam::743316907132:role/ecsTaskExecutionRole \
             --network-mode awsvpc \
             --requires-compatibilities FARGATE \
             --cpu "256" --memory "512" \
-            --container-definitions "[{\"name\": \"nest-api\",\"image\": \"<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],\"essential\": true,\"environment\": [{\"name\": \"PORT\",\"value\": \"8080\"}]}]" \
+            --container-definitions "[{\"name\": \"nest-api\",\"image\": \"743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 3000,\"protocol\": \"tcp\"}],\"essential\": true}]" \
             --query "taskDefinition.taskDefinitionArn" --output text)
+          
           echo "New task definition registered: $TASK_DEF"
 
-          # 클러스터와 서비스 이름은 실제 환경에 맞게 수정하세요.
           aws ecs update-service \
-            --cluster <MY_ECS_CLUSTER> \
-            --service <MY_BACKEND_SERVICE> \
+            --cluster my-ecs-cluster \
+            --service my-backend-service \
             --task-definition "$TASK_DEF" \
             --force-new-deployment \
             --region ${{ secrets.AWS_REGION_BACK }}
@@ -80,49 +82,4 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
 
-      # 3. CloudFront 설정 및 배포 (ALB 도메인을 백엔드 오리진으로 사용)
-      - name: Create or Update CloudFront Distribution
-        run: |
-          CLOUDFRONT_URL=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='my-next-app-bucket'].DomainName" --output text)
-          if [ "$CLOUDFRONT_URL" == "None" ]; then
-            echo "Creating new CloudFront distribution..."
-            aws cloudfront create-distribution \
-              --origin-domain-name "http://my-next-app-bucket-e57x1l.s3-website.ap-northeast-2.amazonaws.com" \
-              --enabled \
-              --default-root-object "index.html" \
-              --comment "my-next-app-bucket" \
-              --default-cache-behavior '{
-                  "TargetOriginId": "S3Origin",
-                  "ViewerProtocolPolicy": "redirect-to-https",
-                  "AllowedMethods": ["GET", "HEAD"],
-                  "CachedMethods": ["GET", "HEAD"]
-              }' \
-              --cache-behaviors '[{
-                  "PathPattern": "/api/*",
-                  "TargetOriginId": "FargateOrigin",
-                  "ViewerProtocolPolicy": "redirect-to-https",
-                  "AllowedMethods": ["GET", "POST", "PUT", "DELETE"]
-              }]' \
-              --origins '[
-                  {
-                      \"DomainName\": \"http://my-next-app-bucket-e57x1l.s3-website.ap-northeast-2.amazonaws.com\",
-                      "Id": "S3Origin",
-                      "S3OriginConfig": {"OriginAccessIdentity": ""}
-                  },
-                  {
-                      "DomainName": "<MY_ALB_DNS>",
-                      "Id": "FargateOrigin",
-                      "CustomOriginConfig": {
-                          "HTTPPort": 80,
-                          "HTTPSPort": 443,
-                          "OriginProtocolPolicy": "https-only"
-                      }
-                  }
-              ]'
-          else
-            echo "CloudFront distribution exists at: $CLOUDFRONT_URL"
-          fi
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION_FRONT }}
+    
