@@ -51,7 +51,7 @@ jobs:
           aws ecr get-login-password --region ${{ secrets.AWS_REGION_BACK }} | docker login --username AWS --password-stdin 743316907132.dkr.ecr.us-east-1.amazonaws.com
           
           # Push the image to ECR
-          docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
+          docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest 
       
       - name: Update ECS Fargate Service
         run: |
