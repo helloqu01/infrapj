@@ -109,7 +109,7 @@ jobs:
                       "S3OriginConfig": {"OriginAccessIdentity": ""}
                   },
                   {
-                      "DomainName": "my-alb-xxxxxxxxx.elb.amazonaws.com",
+                      "DomainName": "infrapj-alb-975883155.us-east-1.elb.amazonaws.com",
                       "Id": "FargateOrigin",
                       "CustomOriginConfig": {
                           "HTTPPort": 80,
