@@ -1,24 +1,23 @@
-# Step 1: Use an official Node.js runtime as the base image
+# 1. Base image
 FROM node:18.18-alpine
 
-# Step 2: Set the working directory inside the container
+# 2. Working dir
 WORKDIR /usr/src/app
 
-# Step 3: Install dependencies
+# 3. Copy package & prisma
 COPY package*.json ./
 COPY prisma ./prisma
+
+# 4. Install dependencies & prisma generate
 RUN npm install
-RUN npx prisma generate  # Prisma Client 생성
+RUN npx prisma generate
 
-
-# Step 4: Copy the application code
+# 5. Copy source
 COPY . .
 
-# Step 5: Build the Nest.js app
+# 6. Build
 RUN npm run build
 
-# Step 6: Expose the port that the app will listen on
+# 7. Run
 EXPOSE 8080
-
-# Step 7: Run the app when the container starts
 CMD ["npm", "run", "start:prod"]
