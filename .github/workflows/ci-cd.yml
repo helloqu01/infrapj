@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2  # 레포지토리의 코드를 체크아웃
+        uses: actions/checkout@v2
 
       - name: Set up Node.js
         uses: actions/setup-node@v2
@@ -51,82 +51,85 @@ jobs:
           aws ecr get-login-password --region ${{ secrets.AWS_REGION_BACK }} | docker login --username AWS --password-stdin 743316907132.dkr.ecr.us-east-1.amazonaws.com
           
           # Push the image to ECR
-          docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest 
+          docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
-      
+
+      - name: Create ECS Cluster if not exists
+        run: |
+          # 새로운 클러스터 이름
+          NEW_CLUSTER_NAME="infrapj-ecs-cluster-v2"
+
+          # describe-clusters 로 확인
+          RESULT=$(aws ecs describe-clusters --clusters "$NEW_CLUSTER_NAME" \
+            --region ${{ secrets.AWS_REGION_BACK }} \
+            --query "clusters[*].status" --output text 2>/dev/null || echo "NOT_FOUND")
+
+          echo "Current cluster status: $RESULT"
+
+          if [ "$RESULT" = "NOT_FOUND" ] || [ "$RESULT" = "MISSING" ] || [ "$RESULT" = "INACTIVE" ]; then
+            echo "Cluster does not exist or is INACTIVE. Creating new cluster..."
+            aws ecs create-cluster --cluster-name "$NEW_CLUSTER_NAME" \
+              --region ${{ secrets.AWS_REGION_BACK }}
+          else
+            echo "Cluster $NEW_CLUSTER_NAME already exists and is ACTIVE."
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
+
       - name: Create or Update ECS Fargate Service
         run: |
-            CLUSTER_NAME="infrapj-ecs-cluster"
-            SERVICE_NAME="infrapj-backend-service"
-            SUBNETS='["subnet-07e2ce40e219d5610","subnet-0b5168621201d75"]'
-            SECURITY_GROUPS='["sg-0abc123def456"]'
-            DESIRED_COUNT=1
-        
-            # 1) 새 태스크 정의 먼저 등록
-            echo "Registering new task definition..."
-            TASK_DEF=$(aws ecs register-task-definition \
-              --family nest-api-task \
-              --execution-role-arn arn:aws:iam::743316907132:role/AmazonECSTaskExecutionRole \
-              --network-mode awsvpc \
-              --requires-compatibilities FARGATE \
-              --cpu "256" \
-              --memory "512" \
-              --container-definitions "[{\"name\": \"nest-api\",\"image\": \"743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],\"essential\": true,\"environment\": [{\"name\": \"PORT\",\"value\": \"8080\"}]}]" \
-              --query "taskDefinition.taskDefinitionArn" --output text \
-              --region ${{ secrets.AWS_REGION_BACK }})
-            echo "New task definition registered: $TASK_DEF"
-        
-            # 2) 클러스터 상태 확인
-            CLUSTER_STATUS=$(aws ecs describe-clusters \
-              --clusters "$CLUSTER_NAME" \
-              --region ${{ secrets.AWS_REGION_BACK }} \
-              --query "clusters[*].status" \
-              --output text || echo "NOT_FOUND")
-            echo "Cluster status: $CLUSTER_STATUS"
-        
-            if [ "$CLUSTER_STATUS" = "ACTIVE" ]; then
-              echo "Cluster is ACTIVE. Proceeding..."
-        
-              # 3) 서비스 상태 확인
-              SERVICE_STATUS=$(aws ecs describe-services \
-                --cluster "$CLUSTER_NAME" \
-                --services "$SERVICE_NAME" \
-                --region ${{ secrets.AWS_REGION_BACK }} \
-                --query "services[0].status" \
-                --output text || echo "NOT_FOUND")
-              echo "Service status: $SERVICE_STATUS"
-        
-              if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
-                # 서비스 이미 존재 → update-service
-                echo "Service exists. Updating service..."
-                aws ecs update-service \
-                  --cluster "$CLUSTER_NAME" \
-                  --service "$SERVICE_NAME" \
-                  --task-definition "$TASK_DEF" \
-                  --force-new-deployment \
-                  --region ${{ secrets.AWS_REGION_BACK }}
-              else
-                # 서비스가 없거나 INACTIVE → create-service
-                echo "Service does not exist (or INACTIVE). Creating new service..."
-                aws ecs create-service \
-                  --cluster "$CLUSTER_NAME" \
-                  --service-name "$SERVICE_NAME" \
-                  --task-definition "$TASK_DEF" \
-                  --desired-count $DESIRED_COUNT \
-                  --launch-type FARGATE \
-                  --network-configuration "awsvpcConfiguration={subnets=$SUBNETS,securityGroups=$SECURITY_GROUPS,assignPublicIp=\"DISABLED\"}" \
-                  --region ${{ secrets.AWS_REGION_BACK }}
-              fi
-            else
-              echo "Cluster is not ACTIVE. Current status: $CLUSTER_STATUS"
-              # 오류 처리 혹은 새 클러스터 생성 로직 등을 여기에 추가할 수 있음
-              exit 1
-            fi
+          CLUSTER_NAME="infrapj-ecs-cluster-v2" # 새 클러스터 이름
+          SERVICE_NAME="infrapj-backend-service"
+          SUBNETS='["subnet-07e2ce40e219d5610","subnet-0b5168621201d75"]'
+          SECURITY_GROUPS='["sg-0abc123def456"]'
+          DESIRED_COUNT=1
+          
+          echo "Registering new task definition..."
+          TASK_DEF=$(aws ecs register-task-definition \
+            --family nest-api-task \
+            --execution-role-arn arn:aws:iam::743316907132:role/AmazonECSTaskExecutionRole \
+            --network-mode awsvpc \
+            --requires-compatibilities FARGATE \
+            --cpu "256" \
+            --memory "512" \
+            --container-definitions "[{\"name\": \"nest-api\",\"image\": \"743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],\"essential\": true,\"environment\": [{\"name\": \"PORT\",\"value\": \"8080\"}]}]" \
+            --query "taskDefinition.taskDefinitionArn" --output text \
+            --region ${{ secrets.AWS_REGION_BACK }})
+          echo "New task definition registered: $TASK_DEF"
+          
+          SERVICE_STATUS=$(aws ecs describe-services \
+            --cluster "$CLUSTER_NAME" \
+            --services "$SERVICE_NAME" \
+            --region ${{ secrets.AWS_REGION_BACK }} \
+            --query "services[0].status" \
+            --output text || echo "NOT_FOUND")
+          echo "Service status: $SERVICE_STATUS"
+
+          if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
+            echo "Service exists. Updating service..."
+            aws ecs update-service \
+              --cluster "$CLUSTER_NAME" \
+              --service "$SERVICE_NAME" \
+              --task-definition "$TASK_DEF" \
+              --force-new-deployment \
+              --region ${{ secrets.AWS_REGION_BACK }}
+          else
+            echo "Service not found or INACTIVE. Creating new service..."
+            aws ecs create-service \
+              --cluster "$CLUSTER_NAME" \
+              --service-name "$SERVICE_NAME" \
+              --task-definition "$TASK_DEF" \
+              --desired-count $DESIRED_COUNT \
+              --launch-type FARGATE \
+              --network-configuration "awsvpcConfiguration={subnets=$SUBNETS,securityGroups=$SECURITY_GROUPS,assignPublicIp=\"DISABLED\"}" \
+              --region ${{ secrets.AWS_REGION_BACK }}
+          fi
         env:
-            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
-        
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
