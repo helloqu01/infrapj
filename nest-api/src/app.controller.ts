@@ -12,6 +12,6 @@ export class AppController {
 
   @Get('/health')
   healthCheck() {
-    return 'ok';
+    return 'okk';
   }
 }
