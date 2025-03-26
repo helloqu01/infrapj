@@ -9,7 +9,8 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   app.enableCors({
-    origin: ['http://my-next-app-bucket-e57x1l.s3-website.ap-northeast-2.amazonaws.com'], // S3에서 호스팅하는 프론트엔드 URL
+    // origin: ['http://my-next-app-bucket-e57x1l.s3-website.ap-northeast-2.amazonaws.com'], // S3에서 호스팅하는 프론트엔드 URL
+    origin: ['https://codingbyohj.com', 'https://api.codingbyohj.com'],
     credentials: true,
   });
 
