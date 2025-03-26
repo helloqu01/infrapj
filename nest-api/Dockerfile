@@ -8,6 +8,8 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 COPY prisma ./prisma
 RUN npm install
+RUN npx prisma generate  # Prisma Client 생성
+
 
 # Step 4: Copy the application code
 COPY . .
