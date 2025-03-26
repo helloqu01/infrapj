@@ -59,7 +59,7 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
 
       # 3. [새로 추가] ECS Fargate 서비스에 자동 반영
-      - name: Create or Update ECS Fargate Service
+      - name: Create or Update ECS Fargate Service 
         run: |
           # 3-1) 파이프라인에서 사용할 변수를 정의
           CLUSTER_NAME="infrapj-ecs-cluster"         # 이미 콘솔에서 만들어둔 클러스터
