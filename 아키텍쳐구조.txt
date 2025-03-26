@@ -1,0 +1,127 @@
+                              [User Browser]
+                                    |
+                          https://codingbyohj.com
+                                    |
+                    +------------------------------+
+                    |       CloudFront (CDN)       |
+                    | codingbyohj.com / api.codingbyohj.com |
+                    +------------------------------+
+                             |               |
+                  [정적 파일 요청]     [API 요청: /api/*]
+                             |               |
+                     +---------------+      |
+                     |   S3 Bucket   |      |
+                     | (Next.js 앱)  |      |
+                     +---------------+      |
+                                            |
+                                            v
+                               +------------------------------+
+                               |          VPC (vpc-xxxx)      |
+                               |    (2개 AZ에 분산 구성)       |
+                               +------------------------------+
+                                  |                      |
+                    +---------------------+    +---------------------+
+                    | 퍼블릭 서브넷 A     |    | 퍼블릭 서브넷 B     |
+                    | - ALB               |    | - ALB               |
+                    | - 보안그룹: 80/443  |    |                     |
+                    +---------------------+    +---------------------+
+                                  |                      |
+                                  |   트래픽 포워딩 (/api/*)
+                                  v
+                    +---------------------------------------------+
+                    |                 ALB                        |
+                    |  (HTTP 80 / HTTPS 443)                     |
+                    |  DNS: api.codingbyohj.com → ALB            |
+                    +---------------------------------------------+
+                                           |
+                                           v
+                           +-------------------------------+
+                           |   프라이빗 서브넷 A / B        |
+                           | - ECS Fargate Task (Nest.js) |
+                           | - 보안그룹: 포트 8080 허용     |
+                           +-------------------------------+
+                                           |
+                                    [Target Group 연결]
+                                    Health Check: /api/health
+                                           |
+                                           v
+                              Nest.js Backend 앱 (PORT: 8080)
+                              - /api/hello
+                              - /api/health
+                                           |
+                              .env → DATABASE_URL 사용
+                                           |
+                                           v
+                        +--------------------------------------+
+                        |      Aurora RDS (MySQL compatible)   |
+                        |   - Private Subnet                   |
+                        |   - 보안그룹: 3306 (ECS 접근 허용)    |
+                        +--------------------------------------+
+
+
+✅ 장점 (Strengths)
+프론트엔드와 백엔드 도메인 통합
+
+사용자 입장에서 https://codingbyohj.com 하나의 도메인으로 통일된 UX 제공.
+
+CloudFront 경로 기반 라우팅으로 api.codingbyohj.com 없이도 codingbyohj.com/api/* 으로 API 접근 가능.
+
+CDN과 캐싱 사용
+
+정적 자산 (Next.js 앱)은 CloudFront + S3를 통해 빠른 전송.
+
+글로벌 사용자 대상 빠른 페이지 로딩.
+
+백엔드 분리와 오토스케일링 기반
+
+ECS Fargate를 사용해서 서버리스한 컨테이너 환경 제공.
+
+서버 관리 필요 없음, 트래픽 증가 시 스케일 가능.
+
+보안 분리 (Public/Private Subnet)
+
+ALB는 퍼블릭, ECS와 RDS는 프라이빗.
+
+외부에서 RDS 직접 접근 불가 → 보안 우수.
+
+도메인 / 인증서 / HTTPS 설정 정상
+
+Route 53 + ACM 인증서 → SSL 적용 성공.
+
+CloudFront에서 HTTPS로 모든 요청 제공.
+
+⚠️ 보완할 점 (Suggestions)
+항목	설명	개선 제안
+CloudFront의 백엔드 라우팅	ALB 주소를 CloudFront 원본으로 연결 시 HTTP 403 또는 504 오류 발생할 수 있음 (Host 헤더 등 문제)	ALB 원본 정책: AllViewer로 설정 or Host 헤더 전달 추가 확인
+Health Check 문제 발생 가능성	Nest.js 백엔드의 health endpoint (/api/health)와 실제 컨테이너 상태가 불일치 시 문제 생김	ECS에서 HEALTHCHECK 도커 설정 or Nest.js에서 /health에 DB 연결 포함
+보안그룹 과다 개방 여부	현재 ALB가 0.0.0.0/0 허용 중	보안 강화 필요 시 WAF 연동 고려
+관찰 / 로깅 구성 부족	CloudWatch Logs, Metrics, ECS 로그 스트림 확인이 빠져있음	애플리케이션 로그 → CloudWatch로 전달 권장
+백엔드 Auto Scaling 설정 확인	현재 ECS 서비스가 1 Task 고정	CPU, Memory 기준으로 오토스케일 설정 추천
+
+🧠 전반적인 평가
+항목	평가
+설계 수준	상 – 모던한 AWS 기반 웹앱 구조
+보안 고려	중상 – 퍼블릭/프라이빗 서브넷 분리, 보안그룹 적절
+운영 편의성	상 – 서버리스(Fargate), 자동 배포 (GitHub Actions) 적용
+확장 가능성	상 – 오토스케일링, CDN, 글로벌 대응
+개선 여지	ALB 원본 처리, 로깅/모니터링, 헬스체크/오토스케일링
+
+✅ 현재 구조의 글로벌 요소
+구성 요소	글로벌 대응 여부	설명
+CloudFront (CDN)	Yes	전 세계 엣지 로케이션을 통해 정적 파일(프론트엔드)을 빠르게 서빙 가능
+Route 53	Yes	글로벌 DNS 서비스, 여러 리전과 연계 가능
+S3	Yes	정적 자산을 CloudFront와 함께 전 세계 캐싱
+HTTPS (ACM)	Yes	글로벌 SSL 인증서 적용 (ACM + CloudFront)
+⚠️ 현재 한계 (글로벌이라 부르기 어려운 이유)
+항목	이유	개선 방향
+백엔드 ECS / RDS가 단일 리전에 존재	백엔드가 us-east-1에만 있으므로, 아시아, 유럽 사용자에겐 레이턴시 ↑	멀티 리전 백엔드 또는 Global Accelerator 도입
+ALB가 단일 리전에서만 응답	CloudFront가 /api/* 요청을 us-east-1 ALB로 전달	지역별 API Gateway + Lambda or 멀티 ALB 고려
+RDS 단일 리전 / 싱글 AZ	장애 시 대응 어려움, 글로벌 복제 불가	RDS 리드 리플리카 또는 Aurora Global DB
+✅ 이걸 ‘글로벌 배포’로 부르려면?
+요건	설명
+정적 자산 글로벌 캐싱	이미 되어 있음 (CloudFront + S3)
+백엔드 다중 리전 배포	예: us-east-1 + ap-northeast-2 각각 ECS 백엔드 배포
+RDS 글로벌 복제	Aurora Global DB or DynamoDB Global Tables
+지리적 기반 라우팅	Route 53 Latency 기반 또는 AWS Global Accelerator
+🔎 결론
+정적 자산(프론트엔드)만 보면 글로벌 배포가 맞아. 하지만 백엔드(서버 + DB)는 아직 지역 제한이 있어서 진짜 ‘글로벌’이라기보단 ‘글로벌 대응 준비가 된 구조(Global-ready)’ 라고 평가하는 게 정확
