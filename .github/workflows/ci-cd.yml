@@ -64,48 +64,69 @@ jobs:
             SUBNETS='["subnet-07e2ce40e219d5610","subnet-0b5168621201d75"]'
             SECURITY_GROUPS='["sg-0abc123def456"]'
             DESIRED_COUNT=1
-            
+        
+            # 1) 새 태스크 정의 먼저 등록
             echo "Registering new task definition..."
             TASK_DEF=$(aws ecs register-task-definition \
               --family nest-api-task \
               --execution-role-arn arn:aws:iam::743316907132:role/AmazonECSTaskExecutionRole \
               --network-mode awsvpc \
               --requires-compatibilities FARGATE \
-              --cpu "256" --memory "512" \
+              --cpu "256" \
+              --memory "512" \
               --container-definitions "[{\"name\": \"nest-api\",\"image\": \"743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],\"essential\": true,\"environment\": [{\"name\": \"PORT\",\"value\": \"8080\"}]}]" \
               --query "taskDefinition.taskDefinitionArn" --output text \
               --region ${{ secrets.AWS_REGION_BACK }})
             echo "New task definition registered: $TASK_DEF"
-            
-            SERVICE_STATUS=$(aws ecs describe-services \
-              --cluster "$CLUSTER_NAME" \
-              --services "$SERVICE_NAME" \
+        
+            # 2) 클러스터 상태 확인
+            CLUSTER_STATUS=$(aws ecs describe-clusters \
+              --clusters "$CLUSTER_NAME" \
               --region ${{ secrets.AWS_REGION_BACK }} \
-              --query "services[0].status" \
+              --query "clusters[*].status" \
               --output text || echo "NOT_FOUND")
-            echo "Service status: $SERVICE_STATUS"
-            
-            if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
-              echo "Service exists. Updating service..."
-              aws ecs update-service \
+            echo "Cluster status: $CLUSTER_STATUS"
+        
+            if [ "$CLUSTER_STATUS" = "ACTIVE" ]; then
+              echo "Cluster is ACTIVE. Proceeding..."
+        
+              # 3) 서비스 상태 확인
+              SERVICE_STATUS=$(aws ecs describe-services \
                 --cluster "$CLUSTER_NAME" \
-                --service "$SERVICE_NAME" \
-                --task-definition "$TASK_DEF" \
-                --force-new-deployment \
-                --region ${{ secrets.AWS_REGION_BACK }}
+                --services "$SERVICE_NAME" \
+                --region ${{ secrets.AWS_REGION_BACK }} \
+                --query "services[0].status" \
+                --output text || echo "NOT_FOUND")
+              echo "Service status: $SERVICE_STATUS"
+        
+              if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
+                # 서비스 이미 존재 → update-service
+                echo "Service exists. Updating service..."
+                aws ecs update-service \
+                  --cluster "$CLUSTER_NAME" \
+                  --service "$SERVICE_NAME" \
+                  --task-definition "$TASK_DEF" \
+                  --force-new-deployment \
+                  --region ${{ secrets.AWS_REGION_BACK }}
+              else
+                # 서비스가 없거나 INACTIVE → create-service
+                echo "Service does not exist (or INACTIVE). Creating new service..."
+                aws ecs create-service \
+                  --cluster "$CLUSTER_NAME" \
+                  --service-name "$SERVICE_NAME" \
+                  --task-definition "$TASK_DEF" \
+                  --desired-count $DESIRED_COUNT \
+                  --launch-type FARGATE \
+                  --network-configuration "awsvpcConfiguration={subnets=$SUBNETS,securityGroups=$SECURITY_GROUPS,assignPublicIp=\"DISABLED\"}" \
+                  --region ${{ secrets.AWS_REGION_BACK }}
+              fi
             else
-              echo "Service does not exist. Creating new service..."
-              aws ecs create-service \
-                --cluster "$CLUSTER_NAME" \
-                --service-name "$SERVICE_NAME" \
-                --task-definition "$TASK_DEF" \
-                --desired-count $DESIRED_COUNT \
-                --launch-type FARGATE \
-                --network-configuration "awsvpcConfiguration={subnets=$SUBNETS,securityGroups=$SECURITY_GROUPS,assignPublicIp=\"DISABLED\"}" \
-                --region ${{ secrets.AWS_REGION_BACK }}
+              echo "Cluster is not ACTIVE. Current status: $CLUSTER_STATUS"
+              # 오류 처리 혹은 새 클러스터 생성 로직 등을 여기에 추가할 수 있음
+              exit 1
             fi
         env:
             AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
-  
+        
