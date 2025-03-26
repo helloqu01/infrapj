@@ -86,7 +86,16 @@ jobs:
               \"environment\": [
                 {\"name\": \"PORT\", \"value\": \"8080\"},
                 {\"name\": \"DATABASE_URL\", \"value\": \"${{ secrets.DATABASE_URL }}\"}
-              ]
+              ],
+               ],
+              \"logConfiguration\": {
+                \"logDriver\": \"awslogs\",
+                \"options\": {
+                  \"awslogs-group\": \"/ecs/nest-api\",
+                  \"awslogs-region\": \"us-east-1\",
+                  \"awslogs-stream-prefix\": \"ecs\"
+                }
+              }
             }]"            --query "taskDefinition.taskDefinitionArn" \
             --output text \
             --region ${{ secrets.AWS_REGION_BACK }})
