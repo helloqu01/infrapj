@@ -3,10 +3,10 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - main  # main 브랜치에 푸시할 때마다 실행
+      - main
   pull_request:
     branches:
-      - main  # main 브랜치에 대한 PR이 생길 때마다 실행
+      - main
 
 jobs:
   deploy:
@@ -48,7 +48,8 @@ jobs:
           docker tag nest-api:latest 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
           
           # Login to AWS ECR
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION_BACK }} | docker login --username AWS --password-stdin 743316907132.dkr.ecr.us-east-1.amazonaws.com
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION_BACK }} \
+            | docker login --username AWS --password-stdin 743316907132.dkr.ecr.us-east-1.amazonaws.com
           
           # Push the image to ECR
           docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
@@ -57,38 +58,64 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
 
-      - name: Create ECS Cluster if not exists
-        run: |
-          # 새로운 클러스터 이름
-          NEW_CLUSTER_NAME="infrapj-ecs-cluster-v2"
-
-          # describe-clusters 로 확인
-          RESULT=$(aws ecs describe-clusters --clusters "$NEW_CLUSTER_NAME" \
-            --region ${{ secrets.AWS_REGION_BACK }} \
-            --query "clusters[*].status" --output text 2>/dev/null || echo "NOT_FOUND")
-
-          echo "Current cluster status: $RESULT"
-
-          if [ "$RESULT" = "NOT_FOUND" ] || [ "$RESULT" = "MISSING" ] || [ "$RESULT" = "INACTIVE" ]; then
-            echo "Cluster does not exist or is INACTIVE. Creating new cluster..."
-            aws ecs create-cluster --cluster-name "$NEW_CLUSTER_NAME" \
-              --region ${{ secrets.AWS_REGION_BACK }}
-          else
-            echo "Cluster $NEW_CLUSTER_NAME already exists and is ACTIVE."
-          fi
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
-
       - name: Create or Update ECS Fargate Service
         run: |
-          CLUSTER_NAME="infrapj-ecs-cluster-v2" # 새 클러스터 이름
-          SERVICE_NAME="infrapj-backend-service"
-          SUBNETS='["subnet-07e2ce40e219d5610","subnet-0b5168621201d75"]'
-          SECURITY_GROUPS='["sg-0abc123def456"]'
-          DESIRED_COUNT=1
-          
+          ##############################
+          # 1) 클러스터 생성 or 확인  #
+          ##############################
+          CLUSTER_NAME="infrapj-ecs-cluster-v2"
+          echo "Checking if cluster $CLUSTER_NAME exists..."
+
+          CLUSTER_STATUS=$(aws ecs describe-clusters \
+            --clusters "$CLUSTER_NAME" \
+            --region ${{ secrets.AWS_REGION_BACK }} \
+            --query "clusters[0].status" --output text 2>/dev/null || echo "NOT_FOUND")
+
+          echo "Current cluster status: $CLUSTER_STATUS"
+
+          if [ "$CLUSTER_STATUS" = "NOT_FOUND" ] || [ "$CLUSTER_STATUS" = "MISSING" ] || [ "$CLUSTER_STATUS" = "INACTIVE" ]; then
+            echo "Cluster does not exist or is INACTIVE. Creating new cluster..."
+            aws ecs create-cluster --cluster-name "$CLUSTER_NAME" \
+              --region ${{ secrets.AWS_REGION_BACK }}
+            echo "Cluster created."
+            CLUSTER_STATUS="CREATING"
+          fi
+
+          ##############################
+          # 2) 클러스터 ACTIVE 폴링    #
+          ##############################
+          # 최대 10회, 5초 간격으로 폴링
+          for i in {1..10}; do
+            CURRENT=$(aws ecs describe-clusters \
+              --clusters "$CLUSTER_NAME" \
+              --region ${{ secrets.AWS_REGION_BACK }} \
+              --query "clusters[0].status" --output text 2>/dev/null || echo "NOT_FOUND")
+            
+            echo "Cluster status now: $CURRENT"
+            if [ "$CURRENT" = "ACTIVE" ]; then
+              echo "Cluster is ACTIVE now."
+              break
+            fi
+            if [ "$CURRENT" = "NOT_FOUND" ] || [ "$CURRENT" = "MISSING" ] || [ "$CURRENT" = "INACTIVE" ]; then
+              echo "Still not ACTIVE. Wait 5s..."
+              sleep 5
+            fi
+          done
+
+          # 한번 더 describe 해서 최종 상태 체크
+          FINAL_STATUS=$(aws ecs describe-clusters \
+            --clusters "$CLUSTER_NAME" \
+            --region ${{ secrets.AWS_REGION_BACK }} \
+            --query "clusters[0].status" --output text 2>/dev/null || echo "NOT_FOUND")
+
+          if [ "$FINAL_STATUS" != "ACTIVE" ]; then
+            echo "ERROR: Cluster is not ACTIVE after waiting. Final status: $FINAL_STATUS"
+            exit 1
+          fi
+
+          ##############################
+          # 3) 새 태스크 정의 등록    #
+          ##############################
           echo "Registering new task definition..."
           TASK_DEF=$(aws ecs register-task-definition \
             --family nest-api-task \
@@ -98,16 +125,27 @@ jobs:
             --cpu "256" \
             --memory "512" \
             --container-definitions "[{\"name\": \"nest-api\",\"image\": \"743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],\"essential\": true,\"environment\": [{\"name\": \"PORT\",\"value\": \"8080\"}]}]" \
-            --query "taskDefinition.taskDefinitionArn" --output text \
+            --query "taskDefinition.taskDefinitionArn" \
+            --output text \
             --region ${{ secrets.AWS_REGION_BACK }})
+
           echo "New task definition registered: $TASK_DEF"
-          
+
+          ##############################
+          # 4) 서비스 생성/업데이트  #
+          ##############################
+          SERVICE_NAME="infrapj-backend-service"
+          SUBNETS='["subnet-07e2ce40e219d5610","subnet-0b5168621201d75"]'
+          SECURITY_GROUPS='["sg-0abc123def456"]'
+          DESIRED_COUNT=1
+
           SERVICE_STATUS=$(aws ecs describe-services \
             --cluster "$CLUSTER_NAME" \
             --services "$SERVICE_NAME" \
             --region ${{ secrets.AWS_REGION_BACK }} \
             --query "services[0].status" \
             --output text || echo "NOT_FOUND")
+          
           echo "Service status: $SERVICE_STATUS"
 
           if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
