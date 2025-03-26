@@ -56,12 +56,13 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
+      
       - name: Create or Update ECS Fargate Service
         run: |
             CLUSTER_NAME="infrapj-ecs-cluster"
             SERVICE_NAME="infrapj-backend-service"
-            SUBNETS='["subnet-07e2ce40e219d5610","subnet-0b5168621201d75"]'  # 실제 서브넷 ID로 변경
-            SECURITY_GROUPS='["sg-0abc123def456"]'                         # 실제 보안 그룹 ID로 변경
+            SUBNETS='["subnet-07e2ce40e219d5610","subnet-0b5168621201d75"]'
+            SECURITY_GROUPS='["sg-0abc123def456"]'
             DESIRED_COUNT=1
             
             echo "Registering new task definition..."
@@ -70,26 +71,21 @@ jobs:
               --execution-role-arn arn:aws:iam::743316907132:role/AmazonECSTaskExecutionRole \
               --network-mode awsvpc \
               --requires-compatibilities FARGATE \
-              --cpu "256" \
-              --memory "512" \
+              --cpu "256" --memory "512" \
               --container-definitions "[{\"name\": \"nest-api\",\"image\": \"743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],\"essential\": true,\"environment\": [{\"name\": \"PORT\",\"value\": \"8080\"}]}]" \
               --query "taskDefinition.taskDefinitionArn" --output text \
               --region ${{ secrets.AWS_REGION_BACK }})
-        
-            echo "New task definition: $TASK_DEF"
-        
-            # 서비스 존재 여부 확인
+            echo "New task definition registered: $TASK_DEF"
+            
             SERVICE_STATUS=$(aws ecs describe-services \
               --cluster "$CLUSTER_NAME" \
               --services "$SERVICE_NAME" \
               --region ${{ secrets.AWS_REGION_BACK }} \
               --query "services[0].status" \
               --output text || echo "NOT_FOUND")
-        
             echo "Service status: $SERVICE_STATUS"
-        
+            
             if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
-              # 서비스가 이미 존재하면 update-service
               echo "Service exists. Updating service..."
               aws ecs update-service \
                 --cluster "$CLUSTER_NAME" \
@@ -98,7 +94,6 @@ jobs:
                 --force-new-deployment \
                 --region ${{ secrets.AWS_REGION_BACK }}
             else
-              # 서비스가 없으면 create-service
               echo "Service does not exist. Creating new service..."
               aws ecs create-service \
                 --cluster "$CLUSTER_NAME" \
@@ -113,4 +108,4 @@ jobs:
             AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
-        
+  
