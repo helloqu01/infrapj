@@ -78,7 +78,7 @@ jobs:
             aws ecs create-cluster --cluster-name "$CLUSTER_NAME" \
               --region ${{ secrets.AWS_REGION_BACK }}
             echo "Cluster created."
-            CLUSTER_STATUS="CREATING"
+            CLUSTER_STATUS="CREATING" 
           fi
 
           ##############################
