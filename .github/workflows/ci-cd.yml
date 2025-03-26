@@ -57,3 +57,70 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
+
+      # 3. [새로 추가] ECS Fargate 서비스에 자동 반영
+      - name: Create or Update ECS Fargate Service
+        run: |
+          # 3-1) 파이프라인에서 사용할 변수를 정의
+          CLUSTER_NAME="infrapj-ecs-cluster"         # 이미 콘솔에서 만들어둔 클러스터
+          SERVICE_NAME="infrapj-backend-service"     # 서비스 이름 (없으면 새로 생성)
+          SUBNETS='["subnet-0abc12345","subnet-0def67890"]'  # 실제 프라이빗 서브넷 ID
+          SECURITY_GROUPS='["sg-0123abcd"]'                  # 보안 그룹 ID
+          DESIRED_COUNT=1
+
+          # 3-2) 새 태스크 정의 등록(도커 이미지는 방금 푸시한 것)
+          echo "Registering new task definition..."
+          TASK_DEF=$(aws ecs register-task-definition \
+            --family nest-api-task \
+            --execution-role-arn arn:aws:iam::743316907132:role/AmazonECSTaskExecutionRole \
+            --network-mode awsvpc \
+            --requires-compatibilities FARGATE \
+            --cpu "256" \
+            --memory "512" \
+            --container-definitions "[{\"name\": \"nest-api\",\"image\": \"743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",\"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],\"essential\": true,\"environment\": [{\"name\": \"PORT\",\"value\": \"8080\"}]}]" \
+            --query "taskDefinition.taskDefinitionArn" \
+            --output text \
+            --region ${{ secrets.AWS_REGION_BACK }})
+
+          echo "New task definition registered: $TASK_DEF"
+
+          # 3-3) 서비스 상태 확인
+          SERVICE_STATUS=$(aws ecs describe-services \
+            --cluster "$CLUSTER_NAME" \
+            --services "$SERVICE_NAME" \
+            --region ${{ secrets.AWS_REGION_BACK }} \
+            --query "services[0].status" \
+            --output text || echo "NOT_FOUND")
+
+          echo "Service status: $SERVICE_STATUS"
+
+          if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
+            # 서비스 이미 존재 → update-service
+            echo "Service exists. Updating service..."
+            aws ecs update-service \
+              --cluster "$CLUSTER_NAME" \
+              --service "$SERVICE_NAME" \
+              --task-definition "$TASK_DEF" \
+              --force-new-deployment \
+              --region ${{ secrets.AWS_REGION_BACK }}
+          else
+            # 서비스가 없거나 INACTIVE → create-service
+            echo "Service does not exist. Creating new service..."
+            aws ecs create-service \
+              --cluster "$CLUSTER_NAME" \
+              --service-name "$SERVICE_NAME" \
+              --task-definition "$TASK_DEF" \
+              --desired-count $DESIRED_COUNT \
+              --launch-type FARGATE \
+              --network-configuration "awsvpcConfiguration={subnets=$SUBNETS,securityGroups=$SECURITY_GROUPS,assignPublicIp=\"DISABLED\"}" \
+              --region ${{ secrets.AWS_REGION_BACK }}
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
+      
+      - name: Install dependencies and generate Prisma
+        run: |
+            npm install
+            npx prisma generate

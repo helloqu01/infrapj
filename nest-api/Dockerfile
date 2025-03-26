@@ -6,6 +6,7 @@ WORKDIR /usr/src/app
 
 # Step 3: Install dependencies
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm install
 
 # Step 4: Copy the application code
