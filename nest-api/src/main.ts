@@ -1,15 +1,27 @@
-// main.ts (Nest.js 설정)
+// main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import * as mysql from 'mysql2/promise';
+
+async function createDatabaseIfNotExists() {
+  const connection = await mysql.createConnection({
+    host: 'infradb.cgdk6iucqdcc.us-east-1.rds.amazonaws.com',
+    port: 3306,
+    user: 'admin',
+    password: '00000000',
+  });
+
+  await connection.query(`CREATE DATABASE IF NOT EXISTS infradb`);
+  await connection.end();
+}
 
 async function bootstrap() {
+  await createDatabaseIfNotExists();
+
   const app = await NestFactory.create(AppModule);
 
-  // 모든 엔드포인트에 '/api' 프리픽스 적용
   app.setGlobalPrefix('api');
-
   app.enableCors({
-    // origin: ['http://my-next-app-bucket-e57x1l.s3-website.ap-northeast-2.amazonaws.com'], // S3에서 호스팅하는 프론트엔드 URL
     origin: ['https://codingbyohj.com', 'https://api.codingbyohj.com'],
     credentials: true,
   });
