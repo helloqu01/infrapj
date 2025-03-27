@@ -59,4 +59,28 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-    
+      - name: Update App Runner Service
+        run: |
+          echo '{
+            "ImageRepository": {
+              "ImageIdentifier": "743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest",
+              "ImageRepositoryType": "ECR",
+              "ImageConfiguration": {
+                "Port": "8080"
+              }
+            },
+            "AutoDeploymentsEnabled": true
+          }' > apprunner-source.json
+      
+          aws apprunner update-service \
+            --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
+            --source-configuration file://apprunner-source.json \
+            --region ${{ secrets.AWS_REGION_BACK }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+
+  
