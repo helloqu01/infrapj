@@ -44,20 +44,20 @@ jobs:
       - name: Build, Push Docker image and Update App Runner
         run: |
           cd nest-api
-          docker build --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} -t apprunner-nest-api .
-          docker tag apprunner-nest-api:latest 743316907132.dkr.ecr.us-east-1.amazonaws.com/apprunner-nest-api:latest
+          docker build --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} -t nest-api .
+          docker tag nest-api:latest 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
 
           # ECR 로그인
           aws ecr get-login-password --region ${{ secrets.AWS_REGION_BACK }} \
             | docker login --username AWS --password-stdin 743316907132.dkr.ecr.us-east-1.amazonaws.com
 
           # 이미지 푸시
-          docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/apprunner-nest-api:latest
-
+          docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
+  
           # App Runner 서비스 업데이트
           aws apprunner update-service \
             --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
-            --source-configuration ImageRepositoryType=ECR,ImageRepository={ImageIdentifier=743316907132.dkr.ecr.us-east-1.amazonaws.com/apprunner-nest-api:latest,ImageConfiguration={Port=8080}},AutoDeploymentsEnabled=true
+            --source-configuration ImageRepositoryType=ECR,ImageRepository={ImageIdentifier=743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest,ImageConfiguration={Port=8080}},AutoDeploymentsEnabled=true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
