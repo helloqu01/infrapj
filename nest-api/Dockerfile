@@ -13,7 +13,7 @@ COPY package*.json ./
 COPY prisma ./prisma
 
 # 4. Install dependencies
-RUN npm install
+RUN npm installㅌㄴ
 
 # 5. Prisma generate (DATABASE_URL이 ENV로 설정되어 있어야 정상 작동)
 RUN npx prisma generate
