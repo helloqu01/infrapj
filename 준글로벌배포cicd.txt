@@ -1,0 +1,139 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code 
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18.x'
+
+      - name: Install dependencies for Next.js
+        run: |
+          cd next-app
+          npm install
+
+      - name: Build Next.js
+        run: |
+          cd next-app
+          npm run build
+
+      # 1. 프론트엔드 배포 (Next.js 앱을 S3에 배포)
+      - name: Deploy Next.js to S3
+        run: |
+          aws s3 sync next-app/out/ s3://my-next-app-bucket-e57x1l --delete
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION_FRONT }}
+
+      # 2. 백엔드 배포 (Nest.js 앱을 ECS Fargate에 배포)
+      - name: Build and push Docker image to ECR
+        run: |
+          cd nest-api
+          docker build --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} -t nest-api .
+          docker tag nest-api:latest 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
+
+          # Login to AWS ECR
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION_BACK }} \
+            | docker login --username AWS --password-stdin 743316907132.dkr.ecr.us-east-1.amazonaws.com
+
+          # Push the image to ECR
+          docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # 3. [새로 추가] ECS Fargate 서비스에 자동 반영
+      - name: Create or Update ECS Fargate Service 
+        run: |
+          # 3-1) 파이프라인에서 사용할 변수를 정의
+          CLUSTER_NAME="infrapj-ecs-cluster"         # 이미 콘솔에서 만들어둔 클러스터
+          SERVICE_NAME="infrapj-backend-service"     # 서비스 이름 (없으면 새로 생성)
+          SUBNETS='["subnet-07ce2ee40de3816d0","subnet-0983be09a636ced6f"]'  # 실제 프라이빗 서브넷 ID
+          SECURITY_GROUPS='["sg-05799df4d3969f5b5"]'                  # 보안 그룹 ID
+          DESIRED_COUNT=1
+
+          # 3-2) 새 태스크 정의 등록(도커 이미지는 방금 푸시한 것)
+          echo "Registering new task definition..."
+          TASK_DEF=$(aws ecs register-task-definition \
+            --family nest-api-task \
+            --execution-role-arn arn:aws:iam::743316907132:role/AmazonECSTaskExecutionRole \
+            --network-mode awsvpc \
+            --requires-compatibilities FARGATE \
+            --cpu "256" \
+            --memory "512" \
+            --container-definitions "[{
+              \"name\": \"nest-api\",
+              \"image\": \"743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest\",
+              \"portMappings\": [{\"containerPort\": 8080,\"protocol\": \"tcp\"}],
+              \"essential\": true,
+              \"environment\": [
+                {\"name\": \"PORT\", \"value\": \"8080\"},
+                {\"name\": \"DATABASE_URL\", \"value\": \"${{ secrets.DATABASE_URL }}\"}
+              ],
+              \"logConfiguration\": {
+                \"logDriver\": \"awslogs\",
+                \"options\": {
+                  \"awslogs-group\": \"/ecs/nest-api\",
+                  \"awslogs-region\": \"us-east-1\",
+                  \"awslogs-stream-prefix\": \"ecs\"
+                }
+              }
+            }]"            --query "taskDefinition.taskDefinitionArn" \
+            --output text \
+            --region ${{ secrets.AWS_REGION_BACK }})
+
+          echo "New task definition registered: $TASK_DEF"
+
+          # 3-3) 서비스 상태 확인
+          SERVICE_STATUS=$(aws ecs describe-services \
+            --cluster "$CLUSTER_NAME" \
+            --services "$SERVICE_NAME" \
+            --region ${{ secrets.AWS_REGION_BACK }} \
+            --query "services[0].status" \
+            --output text || echo "NOT_FOUND")
+
+          echo "Service status: $SERVICE_STATUS"
+
+          if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
+            # 서비스 이미 존재 → update-service
+            echo "Service exists. Updating service..."
+            aws ecs update-service \
+              --cluster "$CLUSTER_NAME" \
+              --service "$SERVICE_NAME" \
+              --task-definition "$TASK_DEF" \
+              --force-new-deployment \
+              --region ${{ secrets.AWS_REGION_BACK }}
+          else
+            # 서비스가 없거나 INACTIVE → create-service
+            echo "Service does not exist. Creating new service..."
+            aws ecs create-service \
+              --cluster "$CLUSTER_NAME" \
+              --service-name "$SERVICE_NAME" \
+              --task-definition "$TASK_DEF" \
+              --desired-count $DESIRED_COUNT \
+              --launch-type FARGATE \
+              --network-configuration "awsvpcConfiguration={subnets=$SUBNETS,securityGroups=$SECURITY_GROUPS,assignPublicIp=\"DISABLED\"}" \
+              --region ${{ secrets.AWS_REGION_BACK }}
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION_BACK }}
+      
