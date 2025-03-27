@@ -125,3 +125,49 @@ RDS 글로벌 복제	Aurora Global DB or DynamoDB Global Tables
 지리적 기반 라우팅	Route 53 Latency 기반 또는 AWS Global Accelerator
 🔎 결론
 정적 자산(프론트엔드)만 보면 글로벌 배포가 맞아. 하지만 백엔드(서버 + DB)는 아직 지역 제한이 있어서 진짜 ‘글로벌’이라기보단 ‘글로벌 대응 준비가 된 구조(Global-ready)’ 라고 평가하는 게 정확
+
+
+
+
+
+
+
+
+                        ┌──────────────────────────────┐
+                        │         Route 53 (DNS)       │
+                        │    codingbyohj.com 도메인     │
+                        └────────────┬─────────────────┘
+                                     │
+               ┌────────────────────▼────────────────────┐
+               │             CloudFront (CDN)            │
+               │  - 도메인: https://codingbyohj.com       │
+               │  - Behavior:                             │
+               │     /api/* → App Runner로 라우팅         │
+               │     기타 → S3로 라우팅                   │
+               └────────────┬────────────────────────────┘
+                            │
+        ┌───────────────────┴────────────┐
+        │                                │
+┌───────▼────────────┐      ┌────────────▼───────────────┐
+│      S3 (정적 웹)  │      │      App Runner (백엔드)     │
+│ Next.js Export 파일 │      │ - Nest.js API 서버          │
+│ index.html 등       │      │ - 자동 마이그레이션/DB 생성 │
+└────────────────────┘      │ - https://api.codingbyohj... │
+                            └────────────┬────────────────┘
+                                         │
+                                ┌────────▼────────┐
+                                │    RDS (MariaDB)│
+                                │  infradb (프라이빗) │
+                                └─────────────────┘
+
+
+
+
+
+🧩 구성 요약
+구성 요소	설명
+Route 53	codingbyohj.com 도메인 관리
+CloudFront	전 세계 CDN + 라우팅 /api/* 처리
+S3	정적 웹사이트 호스팅 (Next.js export 결과물)
+App Runner	Nest.js 백엔드 앱, 도커 이미지 기반, 퍼블릭 접근 가능
+RDS	MariaDB, App Runner에서 직접 접속 가능
