@@ -2,6 +2,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as mysql from 'mysql2/promise';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+const execAsync = promisify(exec);
 
 async function createDatabaseIfNotExists() {
   const connection = await mysql.createConnection({
@@ -17,6 +20,16 @@ async function createDatabaseIfNotExists() {
 
 async function bootstrap() {
   await createDatabaseIfNotExists();
+
+  // ✅ 자동 마이그레이션 실행
+  try {
+    console.log('🔄 Running Prisma migration...');
+    const { stdout, stderr } = await execAsync('npx prisma migrate deploy');
+    console.log('✅ Migration complete:\n', stdout);
+    if (stderr) console.error('⚠️ Migration warnings:\n', stderr);
+  } catch (err) {
+    console.error('❌ Migration failed:', err);
+  }
 
   const app = await NestFactory.create(AppModule);
 
