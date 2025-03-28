@@ -160,15 +160,12 @@ export class AuthController {
     return { message: '비밀번호가 변경되었습니다' };
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('me')
+  @UseGuards(JwtAuthGuard)
   getMe(@Req() req: Request) {
+    console.log('🔐 Decoded User:', req.user); // 여기서 아무것도 안 찍히면 AuthGuard에서 막힘
     const user = req.user as { email: string; name: string; sub: number };
-    return {
-      id: user.sub,
-      email: user.email,
-      name: user.name,
-    };
+    return user;
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
