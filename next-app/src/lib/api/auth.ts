@@ -1,4 +1,4 @@
-const API_URL = 'https://codingbyohj.com/api/auth';
+const API_URL = 'https://codingbyohj.com/api';
 // const API_URL = 'http://localhost:8080/api';
 
 export const login = async (email: string, password: string) => {
