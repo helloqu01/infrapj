@@ -36,7 +36,7 @@ export class AuthController {
     const result = await this.authService.login(body.email, body.password);
     if (!result) throw new UnauthorizedException('이메일 또는 비밀번호가 틀렸습니다');
 
-    res.cookie('refreshToken', result.refreshToken, {
+    res.cookie('__Host-refreshToken', result.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
