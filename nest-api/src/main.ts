@@ -4,7 +4,8 @@ import * as mysql from 'mysql2/promise';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { AuthHeaderMiddleware } from './middleware/auth-header.middleware';
-import cookieParser from 'cookie-parser';
+import * as cookieParser from 'cookie-parser'; // ✅ 수정된 방식
+
 
 const execAsync = promisify(exec);
 
