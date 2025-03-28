@@ -19,7 +19,7 @@ import { handleSessionExpire } from '../utils/session';
     (config: InternalAxiosRequestConfig) => {
       const token = localStorage.getItem('token');
       if (token) {
-        config.headers['X-Auth-Token'] = `Bearer ${token}`;
+        config.headers['Authorization'] = `Bearer ${token}`;
       }
       return config;
     },
