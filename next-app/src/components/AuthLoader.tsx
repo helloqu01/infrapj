@@ -8,7 +8,7 @@ export default function AuthLoader() {
 
   useEffect(() => {
     loadToken();
-  }, []);
+  }, [loadToken]); // ✅ 수정 완료
 
   return null;
 }

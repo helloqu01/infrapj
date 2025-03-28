@@ -14,8 +14,8 @@ export default function LoginForm() {
 
   useEffect(() => {
     loadToken();
-  }, []);
-
+  }, [loadToken]); // ✅ 수정됨
+  
   useEffect(() => {
     const tryGetMe = async () => {
       if (token) {
@@ -24,11 +24,10 @@ export default function LoginForm() {
           setUser(user);
           router.replace('/dashboard');
         } catch {
-          // accessToken 만료 시 refresh 시도
           const refresh = localStorage.getItem('refreshToken');
           if (refresh) {
             try {
-              const newToken = await refreshToken(refresh);
+              const newToken = await refreshToken();
               setToken(newToken.accessToken);
               const user = await getMe(newToken.accessToken);
               setUser(user);
@@ -44,9 +43,10 @@ export default function LoginForm() {
         }
       }
     };
-
+  
     tryGetMe();
-  }, [token]);
+  }, [token, setUser, setToken, logout, router]); // ✅ 수정됨
+  
 
   const handleLogin = async () => {
     try {

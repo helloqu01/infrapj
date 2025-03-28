@@ -15,15 +15,14 @@ export default function RegisterPage() {
 
   useEffect(() => {
     loadToken();
-  }, []);
-
-  // ✅ 로그인된 사용자는 회원가입 페이지 접근 막기
+  }, [loadToken]); // ✅ 의존성 추가
+  
   useEffect(() => {
     if (token) {
       router.replace('/dashboard');
     }
-  }, [token]);
-
+  }, [token, router]); // ✅ router 추가
+  
   useEffect(() => {
     if (token) {
       getMe(token)
@@ -32,7 +31,8 @@ export default function RegisterPage() {
           console.warn('토큰 만료 또는 유효하지 않음');
         });
     }
-  }, [token]);
+  }, [token, setUser]); // ✅ setUser 추가
+  
 
   const handleRegister = async () => {
     try {

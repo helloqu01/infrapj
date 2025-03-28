@@ -12,7 +12,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadToken();
-  }, []);
+  }, [loadToken]); // ✅ 수정됨
 
   useEffect(() => {
     if (!token) {
@@ -36,9 +36,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           router.replace('/login');
         });
     }
-  }, [token]);
+  }, [token, setToken, setUser, user, router]); // ✅ 수정됨
 
-  if (!token || !user) return null; // 로딩 중
+  if (!token || !user) return null;
 
   return <>{children}</>;
 }
@@ -51,7 +51,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     if (user && user.role !== 'ADMIN') {
       router.replace('/not-authorized');
     }
-  }, [user]);
+  }, [user, router]); // ✅ 수정됨
 
   if (!user || user.role !== 'ADMIN') return null;
 

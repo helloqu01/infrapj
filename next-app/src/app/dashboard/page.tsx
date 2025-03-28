@@ -10,13 +10,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadToken();
-  }, []);
+  }, [loadToken]); // ✅ 수정됨
 
   useEffect(() => {
     if (token === null) {
       router.replace('/login');
     }
-  }, [token]);
+  }, [token, router]); // ✅ 수정됨
 
   return (
     <main className="p-10 text-foreground space-y-4">

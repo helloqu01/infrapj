@@ -65,10 +65,10 @@ export const verifyEmail = async (token: string) => {
   return res.json();
 };
 
-export const refreshToken = async (refresh: string) => {
+export const refreshToken = async () => {
   const res = await fetch(`${API_URL}/auth/refresh-token`, {
     method: 'POST',
-    credentials: 'include', // ✅ 쿠키 포함
+    credentials: 'include', // ✅ 쿠키에서 refreshToken 사용
   });
   if (!res.ok) throw new Error('토큰 갱신 실패');
   return res.json(); // { accessToken }
