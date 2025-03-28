@@ -6,6 +6,7 @@ import axios, {
     InternalAxiosRequestConfig,
   } from 'axios';
   import { refreshAccessToken } from './auth';
+import { handleSessionExpire } from '../utils/session';
   
   const API_URL = 'https://codingbyohj.com/api';
   
@@ -28,7 +29,7 @@ import axios, {
   
   // 응답 인터셉터 - 401 시 자동 refresh
   api.interceptors.response.use(
-    (response: AxiosResponse) => response,
+    (response) => response,
     async (error: AxiosError) => {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
   
@@ -38,10 +39,9 @@ import axios, {
           const { accessToken } = await refreshAccessToken();
           localStorage.setItem('token', accessToken);
           originalRequest.headers['X-Auth-Token'] = `Bearer ${accessToken}`;
-          return api(originalRequest); // 요청 재시도
+          return api(originalRequest);
         } catch {
-          localStorage.removeItem('token');
-          window.location.href = '/login';
+          handleSessionExpire(); 
         }
       }
   

@@ -10,21 +10,30 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadToken();
-  }, [loadToken]); // ✅ 수정됨
+  }, [loadToken]);
 
   useEffect(() => {
     if (token === null) {
       router.replace('/login');
     }
-  }, [token, router]); // ✅ 수정됨
+  }, [token, router]);
 
   return (
     <main className="p-10 text-foreground space-y-4">
-      {token && user && (
+      {!user ? (
+        <p className="text-foreground/60">🔄 사용자 정보 불러오는 중...</p>
+      ) : (
         <>
           <p className="text-green-600">✅ 로그인됨</p>
-          <p>👤 이름: {user.name}</p>
-          <p>📧 이메일: {user.email}</p>
+          <p>👤 <strong>이름:</strong> {user.name}</p>
+          <p>📧 <strong>이메일:</strong> {user.email}</p>
+          {user.role && <p>🛡️ <strong>권한:</strong> {user.role}</p>}
+
+          <pre className="bg-foreground/5 p-4 mt-4 rounded text-sm text-foreground/80">
+            Zustand 상태 출력: {'\n'}
+            {JSON.stringify(user, null, 2)}
+          </pre>
+
           <button
             onClick={logout}
             className="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
