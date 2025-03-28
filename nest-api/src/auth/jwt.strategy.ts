@@ -15,6 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    console.log('🔥 JWT payload:', payload); // ✅ 이거 안 찍히면 verify 실패!
     return payload;
   }
 }
