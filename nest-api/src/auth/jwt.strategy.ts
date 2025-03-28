@@ -10,6 +10,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: configService.get<string>('JWT_ACCESS_SECRET'), // ✅ 여기서 주입받음
     });
+    console.log('✅ JWT 전략 설정됨:', configService.get<string>('JWT_ACCESS_SECRET'));
+
   }
 
   async validate(payload: any) {
