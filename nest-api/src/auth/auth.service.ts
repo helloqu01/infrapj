@@ -2,12 +2,14 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
   constructor(
     private jwtService: JwtService,
     private prisma: PrismaService,
+    private config: ConfigService,
   ) {}
 
   async login(email: string, password: string) {
@@ -60,7 +62,7 @@ export class AuthService {
 
   async issueToken(payload: any) {
     return this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_ACCESS_SECRET,
+      secret: this.config.get<string>('JWT_ACCESS_SECRET'), // ✅ 수정
       expiresIn: '15m',
     });
   }
