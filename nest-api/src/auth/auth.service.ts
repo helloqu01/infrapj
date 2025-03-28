@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,6 +33,25 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
   
+  async refreshAccessToken(refreshToken: string): Promise<string> {
+    try {
+      const decoded = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET, // ✅ 리프레시 전용 시크릿
+      });
+  
+      const user = await this.prisma.user.findUnique({ where: { id: decoded.sub } });
+      if (!user) throw new UnauthorizedException('유저를 찾을 수 없습니다.');
+  
+      const newAccessToken = await this.jwtService.signAsync(
+        { sub: user.id, email: user.email, name: user.name },
+        { expiresIn: '15m' }, // 액세스 토큰 유효시간
+      );
+  
+      return newAccessToken;
+    } catch (e) {
+      throw new UnauthorizedException('Refresh token 검증 실패');
+    }
+  }
   
 
   async verifyToken(token: string) {
@@ -40,6 +59,10 @@ export class AuthService {
   }
 
   async issueToken(payload: any) {
-    return this.jwtService.signAsync(payload);
+    return this.jwtService.signAsync(payload, {
+      secret: process.env.JWT_ACCESS_SECRET,
+      expiresIn: '15m',
+    });
   }
+  
 }

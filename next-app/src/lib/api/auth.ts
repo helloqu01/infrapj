@@ -1,16 +1,13 @@
-const API_URL = 'https://codingbyohj.com/api';
-// const API_URL = 'http://localhost:8080/api';
+// lib/api/auth.ts
+import api from './axios';
 
-export const login = async (email: string, password: string) => {
-  const res = await fetch(`${API_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!res.ok) throw new Error('로그인 실패');
-  return res.json();
+// 로그인
+export const login = async (email: string, password: string): Promise<{ accessToken: string }> => {
+  const res = await api.post('/auth/login', { email, password });
+  return res.data;
 };
 
+// 회원가입
 export const register = async ({
   email,
   name,
@@ -20,56 +17,36 @@ export const register = async ({
   name: string;
   password: string;
 }) => {
-  const res = await fetch(`${API_URL}/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, name, password }),
-  });
-
-  if (!res.ok) throw new Error('회원가입 실패');
-  return res.json();
+  const res = await api.post('/auth/register', { email, name, password });
+  return res.data;
 };
 
-
-export const getMe = async (token: string) => {
-  const res = await fetch(`${API_URL}/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error('사용자 정보 조회 실패');
-  return res.json();
+// 현재 사용자 정보
+export const getMe = async (): Promise<{ id: number; name: string; email: string }> => {
+  const res = await api.get('/auth/me');
+  return res.data;
 };
 
-export const forgotPassword = async (email: string) => {
-  const res = await fetch(`${API_URL}/auth/forgot-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
-  });
-  if (!res.ok) throw new Error('비밀번호 재설정 요청 실패');
-  return res.json();
-};
-
-export const resetPassword = async (token: string, newPassword: string) => {
-  const res = await fetch(`${API_URL}/auth/reset-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, newPassword }),
-  });
-  if (!res.ok) throw new Error('비밀번호 재설정 실패');
-  return res.json();
-};
-
+// 이메일 인증
 export const verifyEmail = async (token: string) => {
-  const res = await fetch(`${API_URL}/auth/verify-email?token=${token}`);
-  if (!res.ok) throw new Error('이메일 인증 실패');
-  return res.json();
+  const res = await api.get(`/auth/verify-email?token=${token}`);
+  return res.data;
 };
 
-export const refreshToken = async () => {
-  const res = await fetch(`${API_URL}/auth/refresh-token`, {
-    method: 'POST',
-    credentials: 'include', // ✅ 쿠키에서 refreshToken 사용
-  });
-  if (!res.ok) throw new Error('토큰 갱신 실패');
-  return res.json(); // { accessToken }
+// 비밀번호 재설정 요청
+export const forgotPassword = async (email: string) => {
+  const res = await api.post('/auth/forgot-password', { email });
+  return res.data;
+};
+
+// 비밀번호 재설정 실행
+export const resetPassword = async (token: string, newPassword: string) => {
+  const res = await api.post('/auth/reset-password', { token, newPassword });
+  return res.data;
+};
+
+// 액세스 토큰 재발급
+export const refreshAccessToken = async (): Promise<{ accessToken: string }> => {
+  const res = await api.post('/auth/refresh-token');
+  return res.data;
 };

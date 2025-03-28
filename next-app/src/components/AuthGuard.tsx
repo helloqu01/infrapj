@@ -12,31 +12,36 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadToken();
-  }, [loadToken]); // ✅ 수정됨
+  }, [loadToken]);
 
   useEffect(() => {
-    if (!token) {
-      router.replace('/login');
-      return;
-    }
+    const validateUser = async () => {
+      if (!token) {
+        router.replace('/login');
+        return;
+      }
 
-    if (isTokenExpired(token)) {
-      setToken(null);
-      setUser(null);
-      router.replace('/login');
-      return;
-    }
+      if (isTokenExpired(token)) {
+        setToken(null);
+        setUser(null);
+        router.replace('/login');
+        return;
+      }
 
-    if (!user) {
-      getMe(token)
-        .then(setUser)
-        .catch(() => {
+      if (!user) {
+        try {
+          const data = await getMe();
+          setUser(data);
+        } catch {
           setToken(null);
           setUser(null);
           router.replace('/login');
-        });
-    }
-  }, [token, setToken, setUser, user, router]); // ✅ 수정됨
+        }
+      }
+    };
+
+    validateUser();
+  }, [token, user, setToken, setUser, router]);
 
   if (!token || !user) return null;
 
@@ -51,7 +56,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     if (user && user.role !== 'ADMIN') {
       router.replace('/not-authorized');
     }
-  }, [user, router]); // ✅ 수정됨
+  }, [user, router]);
 
   if (!user || user.role !== 'ADMIN') return null;
 

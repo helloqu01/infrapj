@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/store/auth';
 import { getMe, register } from '@/lib/api/auth';
@@ -15,24 +15,23 @@ export default function RegisterPage() {
 
   useEffect(() => {
     loadToken();
-  }, [loadToken]); // ✅ 의존성 추가
-  
+  }, [loadToken]);
+
   useEffect(() => {
     if (token) {
       router.replace('/dashboard');
     }
-  }, [token, router]); // ✅ router 추가
-  
+  }, [token, router]);
+
   useEffect(() => {
     if (token) {
-      getMe(token)
+      getMe()
         .then(setUser)
         .catch(() => {
           console.warn('토큰 만료 또는 유효하지 않음');
         });
     }
-  }, [token, setUser]); // ✅ setUser 추가
-  
+  }, [token, setUser]);
 
   const handleRegister = async () => {
     try {

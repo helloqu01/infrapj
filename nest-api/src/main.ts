@@ -3,6 +3,9 @@ import { AppModule } from './app.module';
 import * as mysql from 'mysql2/promise';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { AuthHeaderMiddleware } from './middleware/auth-header.middleware';
+import cookieParser from 'cookie-parser';
+
 const execAsync = promisify(exec);
 
 async function createDatabaseIfNotExists() {
@@ -41,7 +44,8 @@ async function bootstrap() {
   await runPrismaMigrate();
 
   const app = await NestFactory.create(AppModule);
-
+  app.use(new AuthHeaderMiddleware().use);
+  app.use(cookieParser()); // ✅ 추가
   app.setGlobalPrefix('api');
   app.enableCors({
     origin: ['https://codingbyohj.com', 'https://api.codingbyohj.com'],

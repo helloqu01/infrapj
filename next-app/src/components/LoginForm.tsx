@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/store/auth';
 import { useRouter } from 'next/navigation';
-import { getMe, login, refreshToken } from '@/lib/api/auth';
+import { getMe, login, refreshAccessToken } from '@/lib/api/auth';
 import Link from 'next/link';
 
 export default function LoginForm() {
@@ -14,49 +14,40 @@ export default function LoginForm() {
 
   useEffect(() => {
     loadToken();
-  }, [loadToken]); // ✅ 수정됨
-  
+  }, [loadToken]);
+
   useEffect(() => {
     const tryGetMe = async () => {
       if (token) {
         try {
-          const user = await getMe(token);
+          const user = await getMe();
           setUser(user);
           router.replace('/dashboard');
         } catch {
-          const refresh = localStorage.getItem('refreshToken');
-          if (refresh) {
-            try {
-              const newToken = await refreshToken();
-              setToken(newToken.accessToken);
-              const user = await getMe(newToken.accessToken);
-              setUser(user);
-              router.replace('/dashboard');
-            } catch {
-              logout();
-              router.replace('/login');
-            }
-          } else {
+          try {
+            const newToken = await refreshAccessToken();
+            setToken(newToken.accessToken);
+            const user = await getMe();
+            setUser(user);
+            router.replace('/dashboard');
+          } catch {
             logout();
             router.replace('/login');
           }
         }
       }
     };
-  
+
     tryGetMe();
-  }, [token, setUser, setToken, logout, router]); // ✅ 수정됨
-  
+  }, [token, setUser, setToken, logout, router]);
 
   const handleLogin = async () => {
     try {
-      const data = await login(email, password); // 로그인 요청
-      setToken(data.accessToken); // accessToken 저장
-      console.log("accessToken",data.accessToken)
-      localStorage.setItem('refreshToken', data.refreshToken);
-      console.log("refreshToken",data.refreshToken)
-      const user = await getMe(data.accessToken); // 유저 정보 요청
-      setUser(user); // 상태 저장
+      const data = await login(email, password);
+      setToken(data.accessToken);
+
+      const user = await getMe();
+      setUser(user);
 
       router.replace('/dashboard');
     } catch (err) {

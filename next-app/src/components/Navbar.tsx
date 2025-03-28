@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
-  const { token, setToken } = useAuth();
+  const { token } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -19,10 +19,18 @@ export default function Navbar() {
   }, []);
 
   const handleLogin = () => router.push('/login');
-  const handleLogout = () => {
-    setToken(null);
-    alert('로그아웃 되었습니다.');
+
+  const handleLogout = async () => {
+    await fetch('/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    });
+  
+    useAuth.getState().logout();
+    useAuth.getState().setToken(null); // 👉 accessToken도 제거
+    router.replace('/');
   };
+  
 
   return (
     <header
