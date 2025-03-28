@@ -38,7 +38,7 @@ export class AuthService {
   async refreshAccessToken(refreshToken: string): Promise<string> {
     try {
       const decoded = await this.jwtService.verifyAsync(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET, // ✅ 리프레시 전용 시크릿
+        secret: this.config.get<string>('JWT_REFRESH_SECRET'), // ✅ 안전하게 변경
       });
   
       const user = await this.prisma.user.findUnique({ where: { id: decoded.sub } });
