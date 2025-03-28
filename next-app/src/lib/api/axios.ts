@@ -2,7 +2,6 @@
 import axios, {
     AxiosInstance,
     AxiosError,
-    AxiosResponse,
     InternalAxiosRequestConfig,
   } from 'axios';
   import { refreshAccessToken } from './auth';
