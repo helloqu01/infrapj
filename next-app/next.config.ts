@@ -1,7 +1,7 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
+/** @type {import('next').NextConfig} */
+const nextConfig: import('next').NextConfig = {
+  output: 'export',
+  // basePath, assetPrefix 설정도 추가 가능
 };
 
-export default nextConfig;
+module.exports = nextConfig;
