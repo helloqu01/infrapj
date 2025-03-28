@@ -52,8 +52,9 @@ export default function LoginForm() {
     try {
       const data = await login(email, password); // 로그인 요청
       setToken(data.accessToken); // accessToken 저장
+      console.log("accessToken",data.accessToken)
       localStorage.setItem('refreshToken', data.refreshToken);
-
+      console.log("refreshToken",data.refreshToken)
       const user = await getMe(data.accessToken); // 유저 정보 요청
       setUser(user); // 상태 저장
 
