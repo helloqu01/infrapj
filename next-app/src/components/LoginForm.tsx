@@ -1,29 +1,66 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/store/auth';
 import { useRouter } from 'next/navigation';
+import { getMe, login, refreshToken } from '@/lib/api/auth';
+import Link from 'next/link';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { setToken } = useAuth();
+  const { setToken, setUser, token, loadToken, logout } = useAuth();
   const router = useRouter();
 
-  const handleLogin = async () => {
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-      headers: { 'Content-Type': 'application/json' },
-    });
+  useEffect(() => {
+    loadToken();
+  }, []);
 
-    if (res.ok) {
-        const data = await res.json();
-        setToken(data.token);       // 상태 저장
-        localStorage.setItem('token', data.token); // 기억
-        router.replace('/dashboard'); // 리디렉션
+  useEffect(() => {
+    const tryGetMe = async () => {
+      if (token) {
+        try {
+          const user = await getMe(token);
+          setUser(user);
+          router.replace('/dashboard');
+        } catch {
+          // accessToken 만료 시 refresh 시도
+          const refresh = localStorage.getItem('refreshToken');
+          if (refresh) {
+            try {
+              const newToken = await refreshToken(refresh);
+              setToken(newToken.accessToken);
+              const user = await getMe(newToken.accessToken);
+              setUser(user);
+              router.replace('/dashboard');
+            } catch {
+              logout();
+              router.replace('/login');
+            }
+          } else {
+            logout();
+            router.replace('/login');
+          }
+        }
       }
-      
+    };
+
+    tryGetMe();
+  }, [token]);
+
+  const handleLogin = async () => {
+    try {
+      const data = await login(email, password); // 로그인 요청
+      setToken(data.accessToken); // accessToken 저장
+      localStorage.setItem('refreshToken', data.refreshToken);
+
+      const user = await getMe(data.accessToken); // 유저 정보 요청
+      setUser(user); // 상태 저장
+
+      router.replace('/dashboard');
+    } catch (err) {
+      alert('로그인 실패: ' + (err as Error).message);
+    }
   };
 
   return (
@@ -67,7 +104,10 @@ export default function LoginForm() {
       </button>
 
       <p className="text-xs text-center text-foreground/50">
-        아직 계정이 없으신가요? <a href="#" className="underline hover:text-foreground">회원가입</a>
+        아직 계정이 없으신가요?{' '}
+        <Link href="/register" className="underline hover:text-foreground">
+          회원가입
+        </Link>
       </p>
     </div>
   );
