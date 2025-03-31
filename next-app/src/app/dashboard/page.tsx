@@ -25,7 +25,7 @@ export default function DashboardPage() {
       const updated = await updateMe({ name: newName });
       updateUser({ name: updated.name }); // 상태 업데이트
       setNewName('');
-    } catch (e) {
+    } catch  {
       alert('이름 변경 실패');
     }
   };
