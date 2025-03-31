@@ -49,7 +49,7 @@ async function bootstrap() {
   app.use(cookieParser()); // ✅ 추가
   app.setGlobalPrefix('api');
   app.enableCors({
-    origin: ['https://codingbyohj.com', 'https://api.codingbyohj.com'],
+    origin: ['https://codingbyohj.com', 'https://api.codingbyohj.com', 'http://localhost:3000'],
     credentials: true,
   });
 

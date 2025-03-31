@@ -7,7 +7,8 @@ import axios, {
   import { refreshAccessToken } from './auth';
 import { handleSessionExpire } from '../utils/session';
   
-  const API_URL = 'https://codingbyohj.com/api';
+  // const API_URL = 'https://codingbyohj.com/api';
+  const API_URL = 'http://localhost:8080/api';
   
   const api: AxiosInstance = axios.create({
     baseURL: API_URL,
