@@ -50,3 +50,8 @@ export const refreshAccessToken = async (): Promise<{ accessToken: string }> => 
   const res = await api.post('/auth/refresh-token');
   return res.data;
 };
+
+export const updateMe = async (data: { name?: string }) => {
+  const res = await api.patch('/auth/me', data);
+  return res.data;
+};

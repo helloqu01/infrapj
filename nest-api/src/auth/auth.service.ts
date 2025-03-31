@@ -72,5 +72,14 @@ export class AuthService {
       expiresIn: '15m',
     });
   }
+
+  async updateUser(userId: number, data: { name?: string }) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+  }
+
+  
   
 }

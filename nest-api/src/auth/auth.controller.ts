@@ -9,6 +9,7 @@ import {
   ForbiddenException,
   Query,
   Res,
+  Patch,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { Request } from 'express';
@@ -166,6 +167,13 @@ export class AuthController {
     console.log('🔐 Decoded User:', req.user); // 여기서 아무것도 안 찍히면 AuthGuard에서 막힘
     const user = req.user as { email: string; name: string; sub: number };
     return user;
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  updateMe(@Req() req: Request, @Body() body: { name?: string }) {
+    const user = req.user as { sub: number };
+    return this.authService.updateUser(user.sub, body);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

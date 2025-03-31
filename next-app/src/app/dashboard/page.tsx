@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/store/auth';
+import { updateMe } from '@/lib/api/auth';
 
 export default function DashboardPage() {
-  const { token, user, loadToken, logout } = useAuth();
+  const { token, user, loadToken, logout, updateUser } = useAuth();
   const router = useRouter();
+  const [newName, setNewName] = useState('');
 
   useEffect(() => {
     loadToken();
@@ -18,6 +20,16 @@ export default function DashboardPage() {
     }
   }, [token, router]);
 
+  const handleUpdateName = async () => {
+    try {
+      const updated = await updateMe({ name: newName });
+      updateUser({ name: updated.name }); // 상태 업데이트
+      setNewName('');
+    } catch (e) {
+      alert('이름 변경 실패');
+    }
+  };
+
   return (
     <main className="p-10 text-foreground space-y-4">
       {!user ? (
@@ -27,12 +39,21 @@ export default function DashboardPage() {
           <p className="text-green-600">✅ 로그인됨</p>
           <p>👤 <strong>이름:</strong> {user.name}</p>
           <p>📧 <strong>이메일:</strong> {user.email}</p>
-          {user.role && <p>🛡️ <strong>권한:</strong> {user.role}</p>}
 
-          <pre className="bg-foreground/5 p-4 mt-4 rounded text-sm text-foreground/80">
-            Zustand 상태 출력: {'\n'}
-            {JSON.stringify(user, null, 2)}
-          </pre>
+          <div className="mt-4">
+            <input
+              className="border px-2 py-1 rounded mr-2"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="새 이름 입력"
+            />
+            <button
+              onClick={handleUpdateName}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              이름 변경
+            </button>
+          </div>
 
           <button
             onClick={logout}
