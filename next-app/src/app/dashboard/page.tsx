@@ -39,6 +39,8 @@ export default function DashboardPage() {
           <p className="text-green-600">✅ 로그인됨</p>
           <p>👤 <strong>이름:</strong> {user.name}</p>
           <p>📧 <strong>이메일:</strong> {user.email}</p>
+          <p>📧 <strong>role:</strong> {user.role}</p>
+          <p>📧 <strong>id:</strong> {user.id}</p>
 
           <div className="mt-4">
             <input

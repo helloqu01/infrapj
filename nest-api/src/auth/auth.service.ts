@@ -77,9 +77,15 @@ export class AuthService {
     return this.prisma.user.update({
       where: { id: userId },
       data,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
     });
   }
-
+  
   
   
 }

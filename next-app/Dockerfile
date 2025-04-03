@@ -4,12 +4,12 @@ FROM node:18-alpine AS builder
 # 2. 작업 디렉토리 생성
 WORKDIR /app
 
-# 3. 종속성 설치 및 빌드
+# 3. 소스 복사 및 설치/빌드
 COPY . .
 RUN npm install
 RUN npm run build
 
-# 4. production 서버 실행용 이미지
+# 4. production 실행용
 FROM node:18-alpine AS runner
 WORKDIR /app
 

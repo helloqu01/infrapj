@@ -1,5 +1,5 @@
 // post.controller.ts
-import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, Put } from '@nestjs/common';
 import { PostService } from './post.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
@@ -24,7 +24,7 @@ export class PostController {
     return this.postService.findOne(Number(id));
   }
 
-  @Patch(':id')
+  @Put(':id')
   update(@Param('id') id: string, @Body() dto: UpdatePostDto) {
     return this.postService.update(Number(id), dto);
   }
