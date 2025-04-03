@@ -1,0 +1,66 @@
+name: Deploy Frontend
+
+on:
+  push:
+    paths:
+      - 'next-app/**'
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18.x'
+
+      - name: Install dependencies
+        run: |
+          cd next-app
+          npm install
+
+      - name: Build Next.js
+        run: |
+          cd next-app
+          npm run build
+
+      - name: Build and push Docker image
+        run: |
+          cd next-app
+          docker build -t next-app .
+          docker tag next-app:latest 743316907132.dkr.ecr.us-east-1.amazonaws.com/next-app:latest
+
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION_FRONT }} \
+            | docker login --username AWS --password-stdin 743316907132.dkr.ecr.us-east-1.amazonaws.com
+
+          docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/next-app:latest
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION_FRONT: ${{ secrets.AWS_REGION_FRONT }}
+
+      - name: Update App Runner Frontend Service
+        run: |
+          echo '{
+            "ImageRepository": {
+              "ImageIdentifier": "743316907132.dkr.ecr.us-east-1.amazonaws.com/next-app:latest",
+              "ImageRepositoryType": "ECR",
+              "ImageConfiguration": {
+                "Port": "3000"
+              }
+            },
+            "AutoDeploymentsEnabled": true
+          }' > apprunner-next-config.json
+
+          aws apprunner update-service \
+            --service-arn ${{ secrets.APP_RUNNER_FRONT_ARN }} \
+            --source-configuration file://apprunner-next-config.json \
+            --region ${{ secrets.AWS_REGION_FRONT }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION_FRONT: ${{ secrets.AWS_REGION_FRONT }}
+          APP_RUNNER_FRONT_ARN: ${{ secrets.APP_RUNNER_FRONT_ARN }}

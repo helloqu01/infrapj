@@ -1,0 +1,70 @@
+name: Deploy Backend
+
+on:
+  push:
+    paths:
+      - 'nest-api/**'
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18.x'
+
+      - name: Install dependencies
+        run: |
+          cd nest-api
+          npm install
+
+      - name: Build Docker image and push to ECR
+        run: |
+          cd nest-api
+          docker build --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} -t nest-api .
+          docker tag nest-api:latest 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
+
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION_BACK }} \
+            | docker login --username AWS --password-stdin 743316907132.dkr.ecr.us-east-1.amazonaws.com
+
+          docker push 743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION_BACK: ${{ secrets.AWS_REGION_BACK }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Update App Runner Backend Service
+        run: |
+          echo '{
+            "ImageRepository": {
+              "ImageIdentifier": "743316907132.dkr.ecr.us-east-1.amazonaws.com/nest-api:latest",
+              "ImageRepositoryType": "ECR",
+              "ImageConfiguration": {
+                "Port": "8080",
+                "RuntimeEnvironmentVariables": {
+                  "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
+                  "JWT_ACCESS_SECRET": "${{ secrets.JWT_ACCESS_SECRET }}",
+                  "JWT_REFRESH_SECRET": "${{ secrets.JWT_REFRESH_SECRET }}"
+                }
+              }
+            },
+            "AutoDeploymentsEnabled": true
+          }' > apprunner-back-config.json
+
+          aws apprunner update-service \
+            --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
+            --source-configuration file://apprunner-back-config.json \
+            --region ${{ secrets.AWS_REGION_BACK }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION_BACK: ${{ secrets.AWS_REGION_BACK }}
+          APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
