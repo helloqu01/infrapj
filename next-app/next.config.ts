@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig: import('next').NextConfig = {
+  // output: 'export',
   reactStrictMode: true,
-  experimental: {
-    appDir: true, // ✅ App Router 구조 사용 시 반드시 필요
-  },
+  // basePath, assetPrefix 설정도 추가 가능
+  
 };
 
 module.exports = nextConfig;
