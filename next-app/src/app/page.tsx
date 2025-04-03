@@ -8,12 +8,13 @@ import ThemeToggle from "@/components/ThemeToggle";
 export default function Home() { 
   return (
     <>
-      <Navbar />
+      {/* <Navbar />
       <Hero />
       <Services />
       <About />
       <Footer />
-      <ThemeToggle />
+      <ThemeToggle /> */}
+      test
     </>
   );
 }
