@@ -26,4 +26,5 @@ RUN npm run build
 
 # 8. Run
 EXPOSE 8080
+ENV PORT=8080
 CMD ["npm", "run", "start:prod"]
